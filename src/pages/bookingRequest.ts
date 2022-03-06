@@ -1,8 +1,10 @@
 import { differenceInDays } from "date-fns"
 
 import { Events, _Bedroom } from "../types/events"
+import { emailSchema, phoneSchema } from "../utils/formValidation"
 import { formatPrice } from "../utils/format"
 import fetchEvents from "../utils/getEvents"
+import isDevMode from "../utils/isDevMode"
 import removeWebflowFormBehaviour from "../utils/webflow"
 
 const select = document.querySelector("select#people") as HTMLSelectElement
@@ -170,6 +172,9 @@ async function mountDemandePage() {
   const errorText = errorTag.querySelector(".error") as HTMLDivElement
 
   const form = document.querySelector("form[data-name=resa]") as HTMLFormElement
+  const phoneInput = form.querySelector("input[type=tel]") as HTMLInputElement
+  const emailInput = form.querySelector("input[type=email]") as HTMLInputElement
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault()
 
@@ -192,15 +197,38 @@ async function mountDemandePage() {
       price: totalPrice,
     }
 
+    // Phone validation
+    try {
+      phoneSchema.parse(phoneInput.value)
+    } catch (error) {
+      errorTag.style.display = "block"
+      errorText.innerText = "Numéro de téléphone non valide"
+      return
+    }
+
+    // Email validation
+    try {
+      emailSchema.parse(emailInput.value)
+    } catch (error) {
+      errorTag.style.display = "block"
+      errorText.innerText = "Adresse email non valide"
+      return
+    }
+
     const cta = form.querySelector(".cta") as HTMLInputElement
 
     try {
       cta.value = "Envoi en cours..."
 
-      const res = await fetch("https://quizas.vercel.app/api/bookingRequest", {
-        body: JSON.stringify(formData),
-        method: "POST",
-      })
+      const res = await fetch(
+        isDevMode()
+          ? "http://localhost:8001/api/bookingRequest"
+          : "https://quizas.vercel.app/api/bookingRequest",
+        {
+          body: JSON.stringify(formData),
+          method: "POST",
+        }
+      )
 
       if (res.status !== 200 || !res.ok) {
         throw new Error("Failed fetching event")

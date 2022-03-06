@@ -1,12 +1,12 @@
-import mountDemandePage from "./pages/ask"
-import mountResaPage from "./pages/resa"
+import mountBookingDates from "./pages/bookingDates"
+import mountBookingRequest from "./pages/bookingRequest"
 
 const currentPath = window.location.pathname
 
 if (currentPath === "/reserver") {
-  mountResaPage()
+  mountBookingDates()
 }
 
 if (currentPath === "/demande") {
-  mountDemandePage()
+  mountBookingRequest()
 }
