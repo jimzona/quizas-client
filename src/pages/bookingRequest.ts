@@ -76,6 +76,12 @@ function changePrice(room: _Bedroom, nights: number, people: number) {
   return total
 }
 
+function toIsoString(date: Date) {
+  return new Date(
+    date.getTime() - date.getTimezoneOffset() * 60000
+  ).toISOString()
+}
+
 async function mountDemandePage() {
   removeWebflowFormBehaviour()
 
@@ -87,6 +93,9 @@ async function mountDemandePage() {
     window.location.href = window.location.origin + "/reserver"
     return
   }
+
+  const dateArrival = new Date(arrival)
+  const dateDeparture = new Date(departure)
 
   const inputDate = document.querySelector("input#Dates") as HTMLInputElement
   inputDate.readOnly = true
@@ -102,8 +111,8 @@ async function mountDemandePage() {
 
   try {
     dates = await fetchEvents({
-      from: new Date(arrival).toISOString(),
-      to: new Date(departure).toISOString(),
+      from: toIsoString(dateArrival),
+      to: toIsoString(dateDeparture),
     })
   } catch (error) {
     // Silent
@@ -191,8 +200,8 @@ async function mountDemandePage() {
       ...Object.fromEntries(rawFormData.entries()),
       room: selectedRoom,
       dates: {
-        arrival: new Date(arrival).toISOString(),
-        departure: new Date(departure).toISOString(),
+        arrival: toIsoString(dateArrival),
+        departure: toIsoString(dateDeparture),
       },
       price: totalPrice,
     }
