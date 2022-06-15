@@ -59,8 +59,8 @@ const BASE_PRICE = {
       supp: 110,
     },
     {
-      base: 360,
-      supp: 170,
+      base: 300,
+      supp: 120,
     },
   ],
 }
