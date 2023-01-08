@@ -6,6 +6,7 @@ import { subDays, differenceInDays, eachDayOfInterval } from "date-fns"
 import { Events } from "../types/events"
 import { configBaseDatepicker } from "../utils/datepicker"
 import { createSelectedDateError, hideSelectedDateError } from "../utils/errors"
+import { formatDateString } from "../utils/format"
 import fetchEvents from "../utils/getEvents"
 import removeWebflowFormBehaviour from "../utils/webflow"
 
@@ -13,6 +14,9 @@ const inputWrapper = document.querySelector(
   ".date_input_wrapper"
 ) as HTMLDivElement
 const loader = document.querySelector(".loader") as HTMLDivElement
+const datesWrapper = document.querySelector(
+  "div.resa_date_title"
+) as HTMLDivElement
 
 export default async function mountResaPage() {
   removeWebflowFormBehaviour()
@@ -97,6 +101,37 @@ export default async function mountResaPage() {
 
     return prevValue
   }, new Set<string>())
+
+  // Show lines for OFF dates
+  const offDatesLines = dates.events.reduce(
+    (prevValue, currValue) => {
+      if (currValue.type !== "OFF") {
+        return prevValue
+      }
+
+      const result = {
+        start: new Date(currValue.start),
+        end: subDays(new Date(currValue.end), 1),
+      }
+
+      prevValue.add(result)
+
+      return prevValue
+    },
+    new Set<{
+      start: Date
+      end: Date
+    }>()
+  )
+
+  for (const offDates of offDatesLines.values()) {
+    const line = document.createElement("div")
+    line.innerText = `Quizas est fermé du ${formatDateString(
+      offDates.start
+    )} au ${formatDateString(offDates.end)}`
+
+    datesWrapper.appendChild(line)
+  }
 
   datepicker = new AirDatepicker("input#Dates", {
     ...configBaseDatepicker,

@@ -99,9 +99,9 @@ async function mountDemandePage() {
 
   const inputDate = document.querySelector("input#Dates") as HTMLInputElement
   inputDate.readOnly = true
-  inputDate.value = `${new Date(arrival).toLocaleDateString(
+  inputDate.value = `Du ${new Date(arrival).toLocaleDateString(
     "fr-FR"
-  )} - ${new Date(departure).toLocaleDateString("fr-FR")}`
+  )} au ${new Date(departure).toLocaleDateString("fr-FR")}`
 
   let dates: {
     success: boolean
