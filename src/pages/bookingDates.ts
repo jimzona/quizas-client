@@ -154,8 +154,8 @@ export default async function mountResaPage() {
 
       const diff = differenceInDays(date[1], date[0])
 
-      if (diff < 2) {
-        createSelectedDateError("Veuillez sélectionner 2 nuits minimum")
+      if (diff < 1) {
+        createSelectedDateError("Veuillez sélectionner au moins 1 nuit")
 
         return
       }

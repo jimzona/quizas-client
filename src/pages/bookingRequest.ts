@@ -68,7 +68,9 @@ const BASE_PRICE = {
 function changePrice(room: _Bedroom, nights: number, people: number) {
   const r = BASE_PRICE[room][people - 1]
 
-  const suppNights = nights - 2
+  //const suppNights = nights - 2
+  // réajuste suppnights avec la possibilité de reserver 1 nuit
+  const suppNights = nights > 2 ? nights - 2 : 0
 
   const total = r.base + suppNights * r.supp
   price.innerText = `PRIX : ${formatPrice(total)}`
