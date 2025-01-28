@@ -28,43 +28,39 @@ function createOptions(amount: number) {
 const price = document.querySelector("label.price") as HTMLLabelElement
 
 const BASE_PRICE = {
+  "LADY CHATTERLEY": [
+    { base1: 120, base2: 240, supp: 108 }, // 1 personne
+    { base1: 135, base2: 270, supp: 122 }, // 2 personnes
+    { base1: 157.5, base2: 315, supp: 141 }, // 3 personnes
+  ],
   "HENRY DE MONFREID": [
-    {
-      base: 220,
-      supp: 100,
-    },
-    {
-      base: 250,
-      supp: 110,
-    },
+    { base1: 120, base2: 240, supp: 108 }, // 1 personne
+    { base1: 135, base2: 270, supp: 122 }, // 2 personnes
   ],
   NAPOLÉON: [
-    {
-      base: 200,
-      supp: 90,
-    },
-    {
-      base: 230,
-      supp: 100,
-    },
-  ],
-
-  "LADY CHATTERLEY": [
-    {
-      base: 220,
-      supp: 100,
-    },
-    {
-      base: 250,
-      supp: 110,
-    },
-    {
-      base: 300,
-      supp: 120,
-    },
+    { base1: 110, base2: 220, supp: 99 }, // 1 personne
+    { base1: 125, base2: 250, supp: 113 }, // 2 personnes
   ],
 }
 
+function changePrice(room: _Bedroom, nights: number, people: number) {
+  const r = BASE_PRICE[room][people - 1] // Sélectionne la bonne ligne selon le nombre de personnes
+
+  let total = 0
+
+  if (nights === 1) {
+    total = r.base1
+  } else if (nights === 2) {
+    total = r.base2
+  } else {
+    total = r.base2 + (nights - 2) * r.supp
+  }
+
+  price.innerText = `PRIX : ${formatPrice(total)}`
+  return total
+}
+
+/*
 function changePrice(room: _Bedroom, nights: number, people: number) {
   const r = BASE_PRICE[room][people - 1]
 
@@ -76,7 +72,7 @@ function changePrice(room: _Bedroom, nights: number, people: number) {
   price.innerText = `PRIX : ${formatPrice(total)}`
 
   return total
-}
+}*/
 
 function toIsoString(date: Date) {
   return new Date(
