@@ -116,20 +116,64 @@ async function mountDemandePage() {
     // Silent
   }
 
-  const disabledRooms = dates?.events
+  /*const disabledRooms = dates?.events
     .filter((e) => e.type === "RESA")
-    .map((e) => e.bedroom)
+    .map((e) => e.bedroom)*/
+
+  const disabledRooms = dates?.events
+    .filter((e) => {
+      if (e.type !== "RESA") return false
+
+      // Ignorer les événements commençant par "R -"
+      if (!e.summary?.startsWith("R -")) {
+        console.log("⚠️ Ignoré car commence par 'R -' :", e.summary)
+        return false
+      }
+
+      // Extraire la chambre depuis `summary` si `bedroom` est null
+      const extractedBedroom = e.bedroom ?? e.summary?.split(" - ")[1]
+
+      console.log(
+        `📌 Réservation détectée : ${extractedBedroom}, Dates : ${e.start} → ${e.end}`
+      )
+
+      const resArrival = new Date(e.start)
+      const resDeparture = new Date(e.end)
+
+      // Vérifie le chevauchement des dates
+      const isDateConflict =
+        (dateArrival >= resArrival && dateArrival < resDeparture) ||
+        (dateDeparture > resArrival && dateDeparture <= resDeparture) ||
+        (dateArrival <= resArrival && dateDeparture >= resDeparture)
+
+      return extractedBedroom && isDateConflict
+    })
+    .map((e) => e.bedroom ?? e.summary?.split(" - ")[1])
+
+  console.log("🚫 Chambres bloquées :", disabledRooms)
 
   const rooms = [
     ...document.querySelectorAll<HTMLDivElement>(".resa-form_room"),
   ]
 
-  const validRooms = rooms.filter((room) => {
+  /* const validRooms = rooms.filter((room) => {
     const roomAttr = room.getAttribute("data-room") as _Bedroom
     if (disabledRooms?.includes(roomAttr)) {
       room.classList.add("disabled")
       room.ariaDisabled = "true"
 
+      return false
+    }
+    return true
+  })*/
+
+  const validRooms = rooms.filter((room) => {
+    const roomAttr = room.getAttribute("data-room")?.trim() as _Bedroom
+
+    // Vérifie que `roomAttr` n'est pas null et est bien dans `disabledRooms`
+    if (roomAttr && disabledRooms?.includes(roomAttr)) {
+      room.classList.add("disabled")
+      room.ariaDisabled = "true"
       return false
     }
     return true
