@@ -119,20 +119,45 @@ async function mountDemandePage() {
   /*const disabledRooms = dates?.events
     .filter((e) => e.type === "RESA")
     .map((e) => e.bedroom)*/
+  const roomMappings = {
+    "lady chatterley": "LC",
+    napoléon: "NP",
+    "henry de monfreid": "HM",
+  }
 
   const disabledRooms = dates?.events
     .filter((e) => {
       if (e.type !== "RESA") return false
 
-      // Ignorer les événements commençant par "R -"
+      // Ignorer les événements ne commençant pas par "R -"
       if (!e.summary?.startsWith("R -")) {
-        console.log("⚠️ Ignoré car commence par 'R -' :", e.summary)
+        // eslint-disable-next-line no-console
+        console.log("⚠️ Ignoré car ne commence pas par 'R -' :", e.summary)
         return false
       }
 
-      // Extraire la chambre depuis `summary` si `bedroom` est null
-      const extractedBedroom = e.bedroom ?? e.summary?.split(" - ")[1]
+      // Extraire la chambre depuis `summary`, `e.bedroom` ou `data-room`
+      let extractedBedroom = e.bedroom ?? e["data-room"]
 
+      if (!extractedBedroom) {
+        const parts = e.summary.split(" - ")
+
+        if (parts.length >= 3) {
+          const [, extracted] = parts // Déstructuration
+          extractedBedroom = extracted
+        } else if (parts.length === 2) {
+          const [, extracted] = parts
+          extractedBedroom = extracted
+        }
+      }
+
+      // Normalisation : suppression des majuscules et des espaces pour correspondance
+      const normalizedBedroom = extractedBedroom?.toLowerCase().trim()
+
+      // Vérifier si `data-room` ou autre correspond dans `roomMappings`
+      extractedBedroom = roomMappings[normalizedBedroom] || extractedBedroom
+
+      // eslint-disable-next-line no-console
       console.log(
         `📌 Réservation détectée : ${extractedBedroom}, Dates : ${e.start} → ${e.end}`
       )
@@ -148,7 +173,14 @@ async function mountDemandePage() {
 
       return extractedBedroom && isDateConflict
     })
-    .map((e) => e.bedroom ?? e.summary?.split(" - ")[1])
+    .map((e) => {
+      const room = e.bedroom ?? e["data-room"] ?? e.summary?.split(" - ")[1]
+
+      // Normalisation pour la correspondance
+      const normalizedRoom = room?.toLowerCase().trim()
+
+      return roomMappings[normalizedRoom] || room // Assurer la conversion des noms en initiales
+    })
 
   console.log("🚫 Chambres bloquées :", disabledRooms)
 
@@ -167,15 +199,33 @@ async function mountDemandePage() {
     return true
   })*/
 
-  const validRooms = rooms.filter((room) => {
-    const roomAttr = room.getAttribute("data-room")?.trim() as _Bedroom
+  // Normaliser `disabledRooms` pour s'assurer qu'il contient uniquement les initiales en majuscules
+  const normalizedDisabledRooms = disabledRooms.map((room) => {
+    const normalizedRoom = room.toLowerCase().trim()
+    return roomMappings[normalizedRoom] || normalizedRoom.toUpperCase() // Convertir en initiales si possible
+  })
 
-    // Vérifie que `roomAttr` n'est pas null et est bien dans `disabledRooms`
-    if (roomAttr && disabledRooms?.includes(roomAttr)) {
+  console.log("🚫 Chambres bloquées normalisées :", normalizedDisabledRooms)
+
+  const validRooms = rooms.filter((room) => {
+    // Récupérer la valeur de `data-room`, la normaliser et la convertir en majuscules
+    const roomAttr = room.getAttribute("data-room")?.trim().toUpperCase()
+
+    console.log("🔍 Chambre détectée dans data-room :", roomAttr)
+
+    // Vérifier si `roomAttr` est une initiale connue ou un nom complet
+    const mappedRoom = roomMappings[roomAttr.toLowerCase()] || roomAttr
+
+    console.log("🔍 Correspondance après mapping :", mappedRoom)
+
+    // Vérifier si la chambre est dans `normalizedDisabledRooms`
+    if (mappedRoom && normalizedDisabledRooms.includes(mappedRoom)) {
+      console.log(`❌ Désactivation de la chambre : ${mappedRoom}`)
       room.classList.add("disabled")
       room.ariaDisabled = "true"
       return false
     }
+
     return true
   })
 
