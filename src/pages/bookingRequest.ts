@@ -106,23 +106,20 @@ async function mountDemandePage() {
     // Silent
   }
 
-  const disabledRooms = dates?.events
-    .filter((e) => e.type === "RESA")
-    .map((e) => {
-      console.log(
-        "📅 Événements avec summary :",
-        dates?.events.map((e) => e.summary)
-      )
-      const eventTitle = e.summary.toUpperCase() // Convertit en majuscules pour éviter les erreurs de casse
+  const disabledRooms = new Set(
+    (dates?.events || []) // Si `dates?.events` est undefined, on utilise un tableau vide
+      .filter((e) => e.type === "RESA" && typeof e.summary === "string")
+      .map((e) => {
+        const eventTitle = e.summary.toUpperCase().trim()
 
-      if (eventTitle.startsWith("R - LC")) return "LADY CHATTERLEY"
-      if (eventTitle.startsWith("R - NP")) return "NAPOLÉON"
-      if (eventTitle.startsWith("R - HM")) return "HENRY DE MONFREID"
+        if (eventTitle.startsWith("R - LC")) return "LADY CHATTERLEY"
+        if (eventTitle.startsWith("R - NP")) return "NAPOLÉON"
+        if (eventTitle.startsWith("R - HM")) return "HENRY DE MONFREID"
 
-      return null // Ignore les autres événements
-    })
-    .filter((room) => room !== null) // Supprime les valeurs nulles
-
+        return null
+      })
+      .filter(Boolean) // Supprime les valeurs nulles
+  )
   const rooms = [
     ...document.querySelectorAll<HTMLDivElement>(".resa-form_room"),
   ]
@@ -130,7 +127,7 @@ async function mountDemandePage() {
   const validRooms = rooms.filter((room) => {
     const roomAttr = room.getAttribute("data-room") as _Bedroom
 
-    if (disabledRooms.includes(roomAttr)) {
+    if (disabledRooms.has(roomAttr)) {
       room.classList.add("disabled")
       room.ariaDisabled = "true"
       return false
