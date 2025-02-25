@@ -29,33 +29,36 @@ const price = document.querySelector("label.price") as HTMLLabelElement
 
 const BASE_PRICE: Record<
   string,
-  { base1: number; base2: number; supp: number }[]
+  { base: number; base2: number; supp: number }[]
 > = {
   "LADY CHATTERLEY": [
-    { base1: 120, base2: 240, supp: 108 },
-    { base1: 135, base2: 270, supp: 122 },
-    { base1: 157.5, base2: 315, supp: 141 },
+    { base: 120, base2: 240, supp: 108 }, // 1 personne
+    { base: 135, base2: 270, supp: 122 }, // 2 personnes
+    { base: 157.5, base2: 315, supp: 141 }, // 3 personnes
   ],
   "HENRY DE MONFREID": [
-    { base1: 120, base2: 240, supp: 108 },
-    { base1: 135, base2: 270, supp: 122 },
+    { base: 120, base2: 240, supp: 108 }, // 1 personne
+    { base: 135, base2: 270, supp: 122 }, // 2 personnes
   ],
   NAPOLÉON: [
-    { base1: 110, base2: 220, supp: 99 },
-    { base1: 125, base2: 250, supp: 113 },
+    { base: 110, base2: 220, supp: 99 }, // 1 personne
+    { base: 125, base2: 250, supp: 113 }, // 2 personnes
   ],
 }
 
 function changePrice(room: _Bedroom, nights: number, people: number) {
-  const r = BASE_PRICE[room]?.[people - 1]
-  if (!r) return 0
+  const r = BASE_PRICE[room]?.[people - 1] // Récupère le tarif selon le nombre de personnes
 
-  const total =
-    nights === 1
-      ? r.base1
-      : nights === 2
-      ? r.base2
-      : r.base2 + (nights - 2) * r.supp
+  if (!r) return 0 // Si pas de tarif, retour 0
+
+  let total
+  if (nights === 1) {
+    total = r.base // 1 nuit
+  } else if (nights === 2) {
+    total = r.base2 // 2 nuits
+  } else {
+    total = r.base2 + (nights - 2) * r.supp // 2 nuits + suppléments
+  }
 
   price.innerText = `PRIX : ${formatPrice(total)}`
   return total
@@ -84,9 +87,9 @@ async function mountDemandePage() {
 
   const inputDate = document.querySelector("input#Dates") as HTMLInputElement
   inputDate.readOnly = true
-  inputDate.value = `Du ${dateArrival.toLocaleDateString(
+  inputDate.value = `Du ${new Date(arrival).toLocaleDateString(
     "fr-FR"
-  )} au ${dateDeparture.toLocaleDateString("fr-FR")}`
+  )} au ${new Date(departure).toLocaleDateString("fr-FR")}`
 
   let dates: {
     success: boolean
@@ -103,65 +106,31 @@ async function mountDemandePage() {
     // Silent
   }
 
-  const roomMappings: Record<string, string> = {
-    "lady chatterley": "LC",
-    napoléon: "NP",
-    "henry de monfreid": "HM",
-  }
-
-  const disabledRooms = (dates?.events ?? [])
-    .filter((e) => {
-      if (e.type !== "RESA") return false
-      if (!e.summary?.startsWith("R -")) return false
-
-      let extractedBedroom = e.bedroom ?? (e as any)["data-room"]
-      if (!extractedBedroom) {
-        const parts = e.summary.split(" - ")
-        extractedBedroom = parts.length >= 2 ? parts[1] : extractedBedroom
-      }
-
-      const normalizedBedroom = extractedBedroom?.toLowerCase().trim()
-      extractedBedroom = roomMappings[normalizedBedroom] || extractedBedroom
-
-      const resArrival = new Date(e.start)
-      const resDeparture = new Date(e.end)
-
-      const isDateConflict =
-        (dateArrival >= resArrival && dateArrival < resDeparture) ||
-        (dateDeparture > resArrival && dateDeparture <= resDeparture) ||
-        (dateArrival <= resArrival && dateDeparture >= resDeparture)
-
-      return extractedBedroom && isDateConflict
-    })
+  const disabledRooms = dates?.events
+    .filter((e) => e.type === "RESA")
     .map((e) => {
-      const room =
-        e.bedroom ?? (e as any)["data-room"] ?? e.summary?.split(" - ")[1]
-      const normalizedRoom = room?.toLowerCase().trim()
-      return roomMappings[normalizedRoom] || room
-    })
+      console.log(
+        "📅 Événements avec summary :",
+        dates?.events.map((e) => e.summary)
+      )
+      const eventTitle = e.summary.toUpperCase() // Convertit en majuscules pour éviter les erreurs de casse
 
-  console.log("🚫 Chambres bloquées :", disabledRooms)
+      if (eventTitle.startsWith("R - LC")) return "LADY CHATTERLEY"
+      if (eventTitle.startsWith("R - NP")) return "NAPOLÉON"
+      if (eventTitle.startsWith("R - HM")) return "HENRY DE MONFREID"
+
+      return null // Ignore les autres événements
+    })
+    .filter((room) => room !== null) // Supprime les valeurs nulles
 
   const rooms = [
     ...document.querySelectorAll<HTMLDivElement>(".resa-form_room"),
   ]
 
-  const normalizedDisabledRooms = disabledRooms.map((room) => {
-    const normalizedRoom = room.toLowerCase().trim()
-    return roomMappings[normalizedRoom] || normalizedRoom.toUpperCase()
-  })
-
-  console.log("🚫 Chambres bloquées normalisées :", normalizedDisabledRooms)
-
   const validRooms = rooms.filter((room) => {
-    const roomAttr = room.getAttribute("data-room")?.trim()
-    if (!roomAttr) return true
+    const roomAttr = room.getAttribute("data-room") as _Bedroom
 
-    const mappedRoom =
-      roomMappings[roomAttr.toLowerCase()] || roomAttr.toUpperCase()
-
-    if (mappedRoom && normalizedDisabledRooms.includes(mappedRoom)) {
-      console.log(`❌ Désactivation de la chambre : ${mappedRoom}`)
+    if (disabledRooms.includes(roomAttr)) {
       room.classList.add("disabled")
       room.ariaDisabled = "true"
       return false
@@ -170,7 +139,7 @@ async function mountDemandePage() {
     return true
   })
 
-  const days = differenceInDays(dateDeparture, dateArrival)
+  const days = differenceInDays(new Date(departure), new Date(arrival))
   let selectedRoom: _Bedroom
   let totalPrice = 0
 
@@ -182,9 +151,11 @@ async function mountDemandePage() {
 
     validRoom.addEventListener("click", () => {
       validRooms.forEach((r) => {
+        const ctaText = r.querySelector<HTMLDivElement>(
+          ".cta .cta_text"
+        ) as HTMLDivElement
         r.classList.remove("selected")
-        r.querySelector<HTMLDivElement>(".cta .cta_text")!.innerText =
-          "Sélectionner cette chambre"
+        ctaText.innerText = "Sélectionner cette chambre"
       })
 
       validRoom.classList.add("selected")
@@ -192,7 +163,12 @@ async function mountDemandePage() {
       selectedRoom = roomName
 
       totalPrice = changePrice(roomName, days, 1)
-      createOptions(roomName === "LADY CHATTERLEY" ? 3 : 2)
+
+      if (roomName === "LADY CHATTERLEY") {
+        createOptions(3)
+      } else {
+        createOptions(2)
+      }
     })
   })
 
@@ -201,6 +177,86 @@ async function mountDemandePage() {
 
   select.addEventListener("change", () => {
     totalPrice = changePrice(selectedRoom, days, Number(select.value))
+  })
+
+  const errorTag = document.querySelector(".date_input_error") as HTMLDivElement
+  const errorText = errorTag.querySelector(".error") as HTMLDivElement
+
+  const form = document.querySelector("form[data-name=resa]") as HTMLFormElement
+  const phoneInput = form.querySelector("input[type=tel]") as HTMLInputElement
+  const emailInput = form.querySelector("input[type=email]") as HTMLInputElement
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault()
+
+    if (!selectedRoom) {
+      errorTag.style.display = "block"
+      errorText.innerText = "Veuillez séléctionner une chambre"
+      return
+    }
+
+    errorTag.style.display = "none"
+
+    const rawFormData = new FormData(form)
+    const formData = {
+      ...Object.fromEntries(rawFormData.entries()),
+      room: selectedRoom,
+      dates: {
+        arrival: toIsoString(dateArrival),
+        departure: toIsoString(dateDeparture),
+      },
+      price: totalPrice,
+    }
+
+    // Phone validation
+    try {
+      phoneSchema.parse(phoneInput.value)
+    } catch (error) {
+      errorTag.style.display = "block"
+      errorText.innerText = "Numéro de téléphone non valide"
+      return
+    }
+
+    // Email validation
+    try {
+      emailSchema.parse(emailInput.value)
+    } catch (error) {
+      errorTag.style.display = "block"
+      errorText.innerText = "Adresse email non valide"
+      return
+    }
+
+    const cta = form.querySelector(".cta") as HTMLInputElement
+
+    try {
+      cta.value = "Envoi en cours..."
+
+      const res = await fetch(
+        isDevMode()
+          ? "http://localhost:8001/api/bookingRequest"
+          : "https://quizas.vercel.app/api/bookingRequest",
+        {
+          body: JSON.stringify(formData),
+          method: "POST",
+        }
+      )
+
+      if (res.status !== 200 || !res.ok) {
+        throw new Error("Failed fetching event")
+      }
+
+      const success = document.querySelector(
+        ".resa-form_success"
+      ) as HTMLDivElement
+      const formWrapper = document.querySelector(
+        ".resa-form_wrapper"
+      ) as HTMLDivElement
+
+      formWrapper.remove()
+      success.style.display = "block"
+    } catch (error) {
+      throw error
+    }
   })
 }
 
