@@ -63,6 +63,7 @@ export default async function mountResaPage() {
 
     window.location.href = window.location.origin + "/demande?" + q.toString()
   })
+
   let dates: {
     success: boolean
     events: Events
@@ -71,16 +72,20 @@ export default async function mountResaPage() {
 
   try {
     dates = await fetchEvents()
-    console.log("Événements récupérés :", dates.events)
+    if (dates?.events) {
+      console.log("Événements récupérés :", dates.events)
+    } else {
+      console.warn("Aucun événement récupéré ou erreur dans la récupération.")
+    }
   } catch (error) {
-    // silent
+    console.error("Erreur lors de la récupération des événements :", error)
   }
 
   // Remove loader and show input datepicker
   loader.remove()
   inputWrapper.style.display = "block"
 
-  if (!dates) {
+  if (!dates || !dates.events) {
     datepicker = new AirDatepicker("input#Dates", configBaseDatepicker)
     return
   }
