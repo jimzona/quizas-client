@@ -71,6 +71,7 @@ export default async function mountResaPage() {
 
   try {
     dates = await fetchEvents()
+    console.log("Événements récupérés :", dates.events)
   } catch (error) {
     // silent
   }
@@ -81,7 +82,6 @@ export default async function mountResaPage() {
 
   if (!dates) {
     datepicker = new AirDatepicker("input#Dates", configBaseDatepicker)
-
     return
   }
 
@@ -149,14 +149,26 @@ export default async function mountResaPage() {
     onSelect: ({ date }) => {
       hideSelectedDateError()
       hideValidateCTA()
+
       // If it's not an array of date, show an error
       if (!Array.isArray(date) || date?.length < 2) return
 
+      const startMonth = date[0].getMonth() + 1 // Janvier = 0 donc on ajoute 1
+      const endMonth = date[1].getMonth() + 1
+
+      // Vérifier si la réservation est en Juillet ou Août
+      const isSummerBooking =
+        startMonth === 7 || startMonth === 8 || endMonth === 7 || endMonth === 8
+
+      const minNights = isSummerBooking ? 2 : 1
       const diff = differenceInDays(date[1], date[0])
 
-      if (diff < 1) {
-        createSelectedDateError("Veuillez sélectionner au moins 1 nuit")
-
+      if (diff < minNights) {
+        createSelectedDateError(
+          `Veuillez sélectionner au moins ${minNights} nuit${
+            minNights > 1 ? "s" : ""
+          }`
+        )
         return
       }
 
@@ -169,7 +181,6 @@ export default async function mountResaPage() {
 
       if (datesContainsOff) {
         createSelectedDateError("Vos dates ne sont pas disponibles")
-
         return
       }
 
