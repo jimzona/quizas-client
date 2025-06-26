@@ -109,11 +109,11 @@ export default async function mountResaPage() {
       days.forEach((d) => {
         const key = d.toDateString()
         const rooms = bookingMap.get(key) || new Set<string>()
-        rooms.add(room)
+        if (room) {
+          rooms.add(room)
+        }
         bookingMap.set(key, rooms)
       })
-    }
-  })
 
   // Si les 3 chambres sont prises sur une date, on la bloque
   bookingMap.forEach((rooms, dateStr) => {
