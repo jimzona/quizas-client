@@ -105,14 +105,15 @@ export default async function mountResaPage() {
       else if (summary.includes("R - NP")) room = "NAPOLÉON"
       else if (summary.includes("R - HM")) room = "HENRY DE MONFREID"
       if (!room) return
-    
+
       days.forEach((d) => {
         const key = d.toDateString()
         const rooms = bookingMap.get(key) || new Set<string>()
-        if (room) rooms.add(room)
+        rooms.add(room!)
         bookingMap.set(key, rooms)
       })
     }
+  })
 
   // Si les 3 chambres sont prises sur une date, on la bloque
   bookingMap.forEach((rooms, dateStr) => {
