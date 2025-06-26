@@ -68,9 +68,9 @@ export default async function mountResaPage() {
   try {
     dates = await fetchEvents()
     if (dates?.events) {
-      console.log("Événements récupérés :", dates.events)
+      console.log("✅ Événements récupérés :", dates.events)
     } else {
-      console.warn("Aucun événement récupéré ou erreur dans la récupération.")
+      console.warn("Aucun événement récupéré.")
     }
   } catch (error) {
     console.error("Erreur lors de la récupération des événements :", error)
@@ -84,40 +84,56 @@ export default async function mountResaPage() {
     return
   }
 
-  // ✅ Désactive les jours de TOUS les événements (OFF + RESA)
-  const offDates = dates.events.reduce((prevValue, currValue) => {
-    const result = eachDayOfInterval({
-      start: new Date(currValue.start),
-      end: subDays(new Date(currValue.end), 1),
-    })
+  // ========== LOGIQUE BLOQUANTE ==========
 
-    result.forEach((r) => {
-      prevValue.add(r.toDateString()) // uniformité avec onRenderCell
-    })
+  const blockedDates = new Set<string>()
+  const bookingMap = new Map<string, Set<string>>() // date -> chambres réservées
 
-    return prevValue
-  }, new Set<string>())
+  dates.events.forEach((event) => {
+    const start = new Date(event.start)
+    const end = subDays(new Date(event.end), 1)
+    const days = eachDayOfInterval({ start, end })
 
-  // ✅ Affiche les périodes OFF uniquement
-  const offDatesLines = dates.events.reduce((prevValue, currValue) => {
-    if (currValue.type !== "OFF") return prevValue
-
-    const result = {
-      start: new Date(currValue.start),
-      end: subDays(new Date(currValue.end), 1),
+    if (event.type === "OFF") {
+      days.forEach((d) => blockedDates.add(d.toDateString()))
     }
 
-    prevValue.add(result)
-    return prevValue
-  }, new Set<{ start: Date; end: Date }>())
+    if (event.type === "RESA" && typeof event.summary === "string") {
+      const summary = event.summary.toUpperCase().trim()
+      let room: string | null = null
+      if (summary.includes("R - LC")) room = "LADY CHATTERLEY"
+      else if (summary.includes("R - NP")) room = "NAPOLÉON"
+      else if (summary.includes("R - HM")) room = "HENRY DE MONFREID"
+      if (!room) return
 
-  for (const off of offDatesLines.values()) {
+      days.forEach((d) => {
+        const key = d.toDateString()
+        const rooms = bookingMap.get(key) || new Set<string>()
+        rooms.add(room)
+        bookingMap.set(key, rooms)
+      })
+    }
+  })
+
+  // Si les 3 chambres sont prises sur une date, on la bloque
+  bookingMap.forEach((rooms, dateStr) => {
+    if (rooms.size >= 3) {
+      blockedDates.add(dateStr)
+    }
+  })
+
+  // ========== AFFICHAGE DES LIGNES OFF ==========
+
+  const offPeriods = dates.events.filter((e) => e.type === "OFF")
+  for (const period of offPeriods) {
     const line = document.createElement("div")
     line.innerText = `Quizas est fermé du ${formatDateString(
-      off.start
-    )} au ${formatDateString(off.end)}`
+      new Date(period.start)
+    )} au ${formatDateString(subDays(new Date(period.end), 1))}`
     datesWrapper.appendChild(line)
   }
+
+  // ========== INITIALISATION DU DATEPICKER ==========
 
   datepicker = new AirDatepicker("input#Dates", {
     ...configBaseDatepicker,
@@ -125,9 +141,10 @@ export default async function mountResaPage() {
     onRenderCell: ({ date, cellType }) => {
       if (cellType === "day") {
         return {
-          disabled: offDates.has(date.toDateString()), // 👈 Match exact
+          disabled: blockedDates.has(date.toDateString()),
         }
       }
+      return {}
     },
     onSelect: ({ date }) => {
       hideSelectedDateError()
@@ -151,12 +168,12 @@ export default async function mountResaPage() {
         return
       }
 
-      const datesContainsOff = eachDayOfInterval({
+      const rangeHasBlocked = eachDayOfInterval({
         start: date[0],
         end: date[1],
-      }).some((d) => offDates.has(d.toDateString()))
+      }).some((d) => blockedDates.has(d.toDateString()))
 
-      if (datesContainsOff) {
+      if (rangeHasBlocked) {
         createSelectedDateError("Vos dates ne sont pas disponibles")
         return
       }

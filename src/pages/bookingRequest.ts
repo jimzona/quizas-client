@@ -87,16 +87,15 @@ async function mountDemandePage() {
 
   const disabledRooms = new Set(
     (testDates?.events || [])
-      .filter((e) => {
+      .filter((e: Events[number]) => {
         if (e.type !== "RESA" || typeof e.summary !== "string") return false
 
         const eventStart = new Date(e.start)
         const eventEnd = new Date(e.end)
 
-        // Vérifie si chevauchement avec la sélection
         return eventStart < dateDeparture && eventEnd > dateArrival
       })
-      .map((e) => {
+      .map((e: Events[number]) => {
         const summary = e.summary.toUpperCase().replace(/\s+/g, " ").trim()
         if (summary.includes("R - LC")) return "LADY CHATTERLEY"
         if (summary.includes("R - NP")) return "NAPOLÉON"
