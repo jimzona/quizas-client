@@ -27,15 +27,11 @@ export default async function mountResaPage() {
   )
 
   helpButton?.addEventListener("click", () => {
-    if (helpModal) {
-      helpModal.style.display = "block"
-    }
+    if (helpModal) helpModal.style.display = "block"
   })
 
   helpModal?.addEventListener("clickout", () => {
-    if (helpModal) {
-      helpModal.style.display = "none"
-    }
+    if (helpModal) helpModal.style.display = "none"
   })
 
   let datepicker: AirDatepicker | null
@@ -57,7 +53,6 @@ export default async function mountResaPage() {
     if (!dates) return
 
     const q = new URLSearchParams()
-
     q.append("arrival", dates[0].toDateString())
     q.append("departure", dates[1].toDateString())
 
@@ -81,7 +76,6 @@ export default async function mountResaPage() {
     console.error("Erreur lors de la récupération des événements :", error)
   }
 
-  // Remove loader and show input datepicker
   loader.remove()
   inputWrapper.style.display = "block"
 
@@ -90,51 +84,38 @@ export default async function mountResaPage() {
     return
   }
 
+  // ✅ Désactive les jours de TOUS les événements (OFF + RESA)
   const offDates = dates.events.reduce((prevValue, currValue) => {
-    if (currValue.type === "RESA") {
-      return prevValue
-    }
-
     const result = eachDayOfInterval({
       start: new Date(currValue.start),
       end: subDays(new Date(currValue.end), 1),
     })
 
     result.forEach((r) => {
-      prevValue.add(r.toString())
+      prevValue.add(r.toDateString()) // uniformité avec onRenderCell
     })
 
     return prevValue
   }, new Set<string>())
 
-  // Show lines for OFF dates
-  const offDatesLines = dates.events.reduce(
-    (prevValue, currValue) => {
-      if (currValue.type !== "OFF") {
-        return prevValue
-      }
+  // ✅ Affiche les périodes OFF uniquement
+  const offDatesLines = dates.events.reduce((prevValue, currValue) => {
+    if (currValue.type !== "OFF") return prevValue
 
-      const result = {
-        start: new Date(currValue.start),
-        end: subDays(new Date(currValue.end), 1),
-      }
+    const result = {
+      start: new Date(currValue.start),
+      end: subDays(new Date(currValue.end), 1),
+    }
 
-      prevValue.add(result)
+    prevValue.add(result)
+    return prevValue
+  }, new Set<{ start: Date; end: Date }>())
 
-      return prevValue
-    },
-    new Set<{
-      start: Date
-      end: Date
-    }>()
-  )
-
-  for (const offDates of offDatesLines.values()) {
+  for (const off of offDatesLines.values()) {
     const line = document.createElement("div")
     line.innerText = `Quizas est fermé du ${formatDateString(
-      offDates.start
-    )} au ${formatDateString(offDates.end)}`
-
+      off.start
+    )} au ${formatDateString(off.end)}`
     datesWrapper.appendChild(line)
   }
 
@@ -142,29 +123,22 @@ export default async function mountResaPage() {
     ...configBaseDatepicker,
     autoClose: true,
     onRenderCell: ({ date, cellType }) => {
-      // Disable OFF dates
       if (cellType === "day") {
         return {
-          disabled: offDates.has(new Date(date).toString()),
+          disabled: offDates.has(date.toDateString()), // 👈 Match exact
         }
       }
-
-      return
     },
     onSelect: ({ date }) => {
       hideSelectedDateError()
       hideValidateCTA()
 
-      // If it's not an array of date, show an error
-      if (!Array.isArray(date) || date?.length < 2) return
+      if (!Array.isArray(date) || date.length < 2) return
 
-      const startMonth = date[0].getMonth() + 1 // Janvier = 0 donc on ajoute 1
+      const startMonth = date[0].getMonth() + 1
       const endMonth = date[1].getMonth() + 1
-
-      // Vérifier si la réservation est en Juillet ou Août
       const isSummerBooking =
-        startMonth === 7 || startMonth === 8 || endMonth === 7 || endMonth === 8
-
+        [7, 8].includes(startMonth) || [7, 8].includes(endMonth)
       const minNights = isSummerBooking ? 2 : 1
       const diff = differenceInDays(date[1], date[0])
 
@@ -180,16 +154,13 @@ export default async function mountResaPage() {
       const datesContainsOff = eachDayOfInterval({
         start: date[0],
         end: date[1],
-      }).some((d) => {
-        return offDates.has(d.toString())
-      })
+      }).some((d) => offDates.has(d.toDateString()))
 
       if (datesContainsOff) {
         createSelectedDateError("Vos dates ne sont pas disponibles")
         return
       }
 
-      // If all is good
       showValidateCTA()
     },
   })

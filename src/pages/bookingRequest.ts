@@ -15,7 +15,6 @@ const loader = document.querySelector(".loader") as HTMLDivElement
 
 function createOptions(amount: number) {
   select.innerHTML = ""
-
   for (let index = 0; index < amount; index++) {
     const value = (index + 1).toString()
     const option = document.createElement("option")
@@ -32,34 +31,27 @@ const BASE_PRICE: Record<
   { base: number; base2: number; supp: number }[]
 > = {
   "LADY CHATTERLEY": [
-    { base: 120, base2: 240, supp: 108 }, // 1 personne
-    { base: 135, base2: 270, supp: 122 }, // 2 personnes
-    { base: 157.5, base2: 315, supp: 141 }, // 3 personnes
+    { base: 120, base2: 240, supp: 108 },
+    { base: 135, base2: 270, supp: 122 },
+    { base: 157.5, base2: 315, supp: 141 },
   ],
   "HENRY DE MONFREID": [
-    { base: 120, base2: 240, supp: 108 }, // 1 personne
-    { base: 135, base2: 270, supp: 122 }, // 2 personnes
+    { base: 120, base2: 240, supp: 108 },
+    { base: 135, base2: 270, supp: 122 },
   ],
   NAPOLÉON: [
-    { base: 110, base2: 220, supp: 99 }, // 1 personne
-    { base: 125, base2: 250, supp: 113 }, // 2 personnes
+    { base: 110, base2: 220, supp: 99 },
+    { base: 125, base2: 250, supp: 113 },
   ],
 }
 
 function changePrice(room: _Bedroom, nights: number, people: number) {
-  const r = BASE_PRICE[room]?.[people - 1] // Récupère le tarif selon le nombre de personnes
-
-  if (!r) return 0 // Si pas de tarif, retour 0
-
+  const r = BASE_PRICE[room]?.[people - 1]
+  if (!r) return 0
   let total
-  if (nights === 1) {
-    total = r.base // 1 nuit
-  } else if (nights === 2) {
-    total = r.base2 // 2 nuits
-  } else {
-    total = r.base2 + (nights - 2) * r.supp // 2 nuits + suppléments
-  }
-
+  if (nights === 1) total = r.base
+  else if (nights === 2) total = r.base2
+  else total = r.base2 + (nights - 2) * r.supp
   price.innerText = `PRIX : ${formatPrice(total)}`
   return total
 }
@@ -84,59 +76,50 @@ async function mountDemandePage() {
 
   const dateArrival = new Date(arrival)
   const dateDeparture = new Date(departure)
-
   const inputDate = document.querySelector("input#Dates") as HTMLInputElement
   inputDate.readOnly = true
-  inputDate.value = `Du ${new Date(arrival).toLocaleDateString(
+  inputDate.value = `Du ${dateArrival.toLocaleDateString(
     "fr-FR"
-  )} au ${new Date(departure).toLocaleDateString("fr-FR")}`
+  )} au ${dateDeparture.toLocaleDateString("fr-FR")}`
 
-  let dates: {
-    success: boolean
-    events: Events
-    getFromCatch: boolean
-  } | null = null
-
-  try {
-    dates = await fetchEvents({
-      from: toIsoString(dateArrival),
-      to: toIsoString(dateDeparture),
-    })
-  } catch (error) {
-    // Silent
-  }
+  const testDates = await fetchEvents()
+  console.log("✅ Tous les événements disponibles :", testDates.events)
 
   const disabledRooms = new Set(
-    (dates?.events || []) // Si `dates?.events` est undefined, on utilise un tableau vide
-      .filter((e) => e.type === "RESA" && typeof e.summary === "string")
+    (testDates?.events || [])
+      .filter((e) => {
+        if (e.type !== "RESA" || typeof e.summary !== "string") return false
+
+        const eventStart = new Date(e.start)
+        const eventEnd = new Date(e.end)
+
+        // Vérifie si chevauchement avec la sélection
+        return eventStart < dateDeparture && eventEnd > dateArrival
+      })
       .map((e) => {
-        const eventTitle = e.summary.toUpperCase().trim()
-
-        if (eventTitle.startsWith("R - LC")) return "LADY CHATTERLEY"
-        if (eventTitle.startsWith("R - NP")) return "NAPOLÉON"
-        if (eventTitle.startsWith("R - HM")) return "HENRY DE MONFREID"
-
+        const summary = e.summary.toUpperCase().replace(/\s+/g, " ").trim()
+        if (summary.includes("R - LC")) return "LADY CHATTERLEY"
+        if (summary.includes("R - NP")) return "NAPOLÉON"
+        if (summary.includes("R - HM")) return "HENRY DE MONFREID"
         return null
       })
-      .filter(Boolean) // Supprime les valeurs nulles
+      .filter(Boolean)
   )
+
   const rooms = [
     ...document.querySelectorAll<HTMLDivElement>(".resa-form_room"),
   ]
-
   const validRooms = rooms.filter((room) => {
     const roomAttr = room.getAttribute("data-room") as _Bedroom
-
     if (disabledRooms.has(roomAttr)) {
       room.classList.add("disabled")
       room.ariaDisabled = "true"
       return false
     }
-
     return true
   })
 
-  const days = differenceInDays(new Date(departure), new Date(arrival))
+  const days = differenceInDays(dateDeparture, dateArrival)
   let selectedRoom: _Bedroom
   let totalPrice = 0
 
@@ -148,24 +131,17 @@ async function mountDemandePage() {
 
     validRoom.addEventListener("click", () => {
       validRooms.forEach((r) => {
-        const ctaText = r.querySelector<HTMLDivElement>(
+        const t = r.querySelector<HTMLDivElement>(
           ".cta .cta_text"
         ) as HTMLDivElement
         r.classList.remove("selected")
-        ctaText.innerText = "Sélectionner cette chambre"
+        t.innerText = "Sélectionner cette chambre"
       })
-
       validRoom.classList.add("selected")
       ctaText.innerText = "Chambre sélectionnée"
       selectedRoom = roomName
-
       totalPrice = changePrice(roomName, days, 1)
-
-      if (roomName === "LADY CHATTERLEY") {
-        createOptions(3)
-      } else {
-        createOptions(2)
-      }
+      createOptions(roomName === "LADY CHATTERLEY" ? 3 : 2)
     })
   })
 
@@ -185,13 +161,11 @@ async function mountDemandePage() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault()
-
     if (!selectedRoom) {
       errorTag.style.display = "block"
-      errorText.innerText = "Veuillez séléctionner une chambre"
+      errorText.innerText = "Veuillez sélectionner une chambre"
       return
     }
-
     errorTag.style.display = "none"
 
     const rawFormData = new FormData(form)
@@ -205,26 +179,16 @@ async function mountDemandePage() {
       price: totalPrice,
     }
 
-    // Phone validation
     try {
       phoneSchema.parse(phoneInput.value)
-    } catch (error) {
-      errorTag.style.display = "block"
-      errorText.innerText = "Numéro de téléphone non valide"
-      return
-    }
-
-    // Email validation
-    try {
       emailSchema.parse(emailInput.value)
     } catch (error) {
       errorTag.style.display = "block"
-      errorText.innerText = "Adresse email non valide"
+      errorText.innerText = "Email ou téléphone non valide"
       return
     }
 
     const cta = form.querySelector(".cta") as HTMLInputElement
-
     try {
       cta.value = "Envoi en cours..."
 
@@ -238,9 +202,7 @@ async function mountDemandePage() {
         }
       )
 
-      if (res.status !== 200 || !res.ok) {
-        throw new Error("Failed fetching event")
-      }
+      if (!res.ok) throw new Error("Échec de l'envoi")
 
       const success = document.querySelector(
         ".resa-form_success"
@@ -248,11 +210,10 @@ async function mountDemandePage() {
       const formWrapper = document.querySelector(
         ".resa-form_wrapper"
       ) as HTMLDivElement
-
       formWrapper.remove()
       success.style.display = "block"
     } catch (error) {
-      throw error
+      console.error("Erreur lors de l'envoi du formulaire", error)
     }
   })
 }
